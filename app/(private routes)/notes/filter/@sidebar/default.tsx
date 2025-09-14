@@ -1,5 +1,5 @@
 import Link from "next/link";
-import css from "../../../../components/Sidebar/SidebarNotes.module.css";
+import css from "@/components/Sidebar/SidebarNotes.module.css";
 
 const TAGS = [
   "All",
@@ -10,13 +10,17 @@ const TAGS = [
   "Shopping",
 ] as const;
 
-export default function SidebarDefault() {
+export default function DefaultSidebar() {
   return (
     <ul className={css.menuList}>
       {TAGS.map((tag) => (
-        <li key={tag} className={css.menuItem}>
-          <Link href={`/notes/filter/${tag}`} className={css.menuLink}>
-            {tag === "All" ? "All notes" : tag}
+        <li className={css.menuItem} key={tag}>
+          <Link
+            href={`/notes/filter/${tag}`}
+            prefetch={false}
+            className={css.menuLink}
+          >
+            {tag}
           </Link>
         </li>
       ))}
