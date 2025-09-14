@@ -1,0 +1,22 @@
+.container {
+  padding: 16px;
+  max-width: 640px;
+}
+.title {
+  font-size: 20px;
+  margin: 0 0 12px;
+}
+.content {
+  margin: 0 0 8px;
+  color: #333;
+}
+.tag {
+  display: inline-block;
+  font-size: 12px;
+  color: #0a58ca;
+  margin: 0 0 8px;
+}
+.date {
+  font-size: 12px;
+  color: #777;
+}
