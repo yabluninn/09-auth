@@ -1,38 +1,35 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 
-const PRIVATE_PREFIXES = ["/notes", "/profile"];
-const AUTH_ROUTES = ["/sign-in", "/sign-up"];
+const PUBLIC_PATHS = ["/", "/sign-in", "/sign-up"];
 
-export async function middleware(req: NextRequest) {
-  const { nextUrl, headers } = req;
-  const pathname = nextUrl.pathname;
+function isPublicPath(pathname: string) {
+  return PUBLIC_PATHS.some(
+    (p) => pathname === p || pathname.startsWith(p + "/")
+  );
+}
 
-  const origin = nextUrl.origin;
-  const isPrivate = PRIVATE_PREFIXES.some((p) => pathname.startsWith(p));
-  const isAuthRoute = AUTH_ROUTES.includes(pathname);
+export function middleware(req: NextRequest) {
+  const { pathname } = req.nextUrl;
 
-  const res = await fetch(`${origin}/api/auth/session`, {
-    method: "GET",
-    headers: {
-      cookie: headers.get("cookie") || "",
-    },
-  });
+  const hasAccess = Boolean(req.cookies.get("accessToken")?.value);
+  // const hasRefresh = Boolean(req.cookies.get("refreshToken")?.value);
+  const isAuth = hasAccess; // || hasRefresh;
 
-  const authed =
-    res.status === 200 &&
-    (await res
-      .clone()
-      .json()
-      .catch(() => null));
+  const isPrivate =
+    pathname.startsWith("/notes") || pathname.startsWith("/profile");
 
-  if (isPrivate && !authed) {
-    const url = new URL("/sign-in", req.url);
+  if (isPrivate && !isAuth) {
+    const url = req.nextUrl.clone();
+    url.pathname = "/sign-in";
+
+    url.searchParams.set("redirectTo", pathname);
     return NextResponse.redirect(url);
   }
 
-  if (isAuthRoute && authed) {
-    const url = new URL("/profile", req.url);
+  if (isAuth && isPublicPath(pathname)) {
+    const url = req.nextUrl.clone();
+    url.pathname = "/profile";
     return NextResponse.redirect(url);
   }
 
@@ -40,11 +37,5 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: [
-    "/((private routes)/(.*))",
-    "/notes/:path*",
-    "/profile/:path*",
-    "/sign-in",
-    "/sign-up",
-  ],
+  matcher: ["/notes/:path*", "/profile/:path*", "/sign-in", "/sign-up"],
 };
