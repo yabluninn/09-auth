@@ -3,9 +3,9 @@ import type { Metadata } from "next";
 import { Roboto } from "next/font/google";
 
 import TanStackProvider from "@/components/TanStackProvider/TanStackProvider";
+import AuthProvider from "@/components/AuthProvider/AuthProvider";
 import Header from "@/components/Header/Header";
 import Footer from "@/components/Footer/Footer";
-import AuthProvider from "@/components/AuthProvider/AuthProvider";
 
 const roboto = Roboto({
   subsets: ["latin"],
@@ -14,21 +14,14 @@ const roboto = Roboto({
   display: "swap",
 });
 
-const SITE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
-
 export const metadata: Metadata = {
-  metadataBase: new URL(SITE_URL),
   title: "NoteHub",
-  description:
-    "NoteHub — простий та ефективний застосунок для створення та керування нотатками.",
+  description: "Note taking app with auth",
   openGraph: {
     title: "NoteHub",
-    description:
-      "NoteHub — простий та ефективний застосунок для створення та керування нотатками.",
-    url: SITE_URL,
+    description: "Note taking app with auth",
+    url: "https://your-vercel-domain.vercel.app",
     images: ["https://ac.goit.global/fullstack/react/notehub-og-meta.jpg"],
-    siteName: "NoteHub",
-    type: "website",
   },
 };
 
@@ -40,15 +33,15 @@ export default function RootLayout({
   modal: React.ReactNode;
 }) {
   return (
-    <html lang="en">
-      <body className={`${roboto.variable} ${roboto.className}`}>
+    <html lang="en" className={roboto.variable}>
+      <body>
         <TanStackProvider>
-          <Header />
           <AuthProvider>
+            <Header />
             <main>{children}</main>
             {modal}
+            <Footer />
           </AuthProvider>
-          <Footer />
         </TanStackProvider>
       </body>
     </html>

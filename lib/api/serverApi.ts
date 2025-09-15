@@ -1,39 +1,83 @@
 import { api } from "./api";
-import type { User } from "@/types/user";
+import type { AxiosResponse } from "axios";
+import { cookies } from "next/headers";
 import type { Note } from "@/types/note";
-import type { FetchNotesParams, FetchNotesResponse } from "./clientApi";
+import type { User } from "@/types/user";
 
-function h(cookie?: string) {
-  return cookie ? { headers: { cookie } } : {};
+const PER_PAGE = 12;
+
+async function authHeaders() {
+  const c = await cookies();
+  const access = c.get("accessToken")?.value;
+  const refresh = c.get("refreshToken")?.value;
+  const cookieHeader = [
+    access && `accessToken=${access}`,
+    refresh && `refreshToken=${refresh}`,
+  ]
+    .filter(Boolean)
+    .join("; ");
+  return cookieHeader ? { cookie: cookieHeader } : {};
 }
 
-export async function getMeServer(cookie?: string): Promise<User> {
-  const { data } = await api.get<User>("/users/me", h(cookie));
+// -------- Notes (server) --------
+export async function fetchNotesServer(params: {
+  page?: number;
+  search?: string;
+  tag?: Note["tag"] | "All";
+}) {
+  const headers = await authHeaders();
+  const { data } = await api.get<{ notes: Note[]; totalPages: number }>(
+    "/notes",
+    {
+      headers,
+      withCredentials: true,
+      params: {
+        perPage: PER_PAGE,
+        page: params.page ?? 1,
+        search: params.search ?? "",
+        tag: params.tag && params.tag !== "All" ? params.tag : undefined,
+      },
+    }
+  );
   return data;
 }
 
-export async function fetchNotesServer(
-  params: FetchNotesParams,
-  cookie?: string
-): Promise<FetchNotesResponse> {
-  const query: Record<string, string | number> = {
-    page: params.page,
-    perPage: params.perPage,
-  };
-  if (params.search?.trim()) query.search = params.search.trim();
-  if (params.tag && params.tag !== "All") query.tag = params.tag;
-
-  const { data } = await api.get<FetchNotesResponse>("/notes", {
-    params: query,
-    ...h(cookie),
+export async function fetchNoteByIdServer(id: string) {
+  const headers = await authHeaders();
+  const { data } = await api.get<Note>(`/notes/${id}`, {
+    headers,
+    withCredentials: true,
   });
   return data;
 }
 
-export async function fetchNoteByIdServer(
-  id: string,
-  cookie?: string
-): Promise<Note> {
-  const { data } = await api.get<Note>(`/notes/${id}`, h(cookie));
+// -------- Users (server) --------
+export async function getMeServer(): Promise<User> {
+  const headers = await authHeaders();
+  const { data } = await api.get<User>("/users/me", {
+    headers,
+    withCredentials: true,
+  });
   return data;
+}
+
+export async function updateMeServer(
+  payload: Partial<Pick<User, "username">>
+): Promise<User> {
+  const headers = await authHeaders();
+  const { data } = await api.patch<User>("/users/me", payload, {
+    headers,
+    withCredentials: true,
+  });
+  return data;
+}
+
+export async function getSessionServer(): Promise<
+  AxiosResponse<User | undefined>
+> {
+  const headers = await authHeaders();
+  return api.get<User | undefined>("/auth/session", {
+    headers,
+    withCredentials: true,
+  });
 }
