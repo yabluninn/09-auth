@@ -19,7 +19,7 @@ export default function EditProfilePage() {
       if (user) {
         setUsername(user.username || "");
         setEmail(user.email);
-        setAvatarURL(user.avatarURL || undefined);
+        setAvatarURL(user.avatar || undefined);
       } else {
         router.push("/sign-in");
       }
