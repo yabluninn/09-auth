@@ -1,6 +1,6 @@
 import { api } from "./api";
 import type { User } from "@/types/user";
-import type { Note } from "@/types/note";
+import type { Note, FetchNotesParams, FetchNotesResponse } from "@/types/note";
 
 // ---------- AUTH ----------
 export async function loginClient(payload: {
@@ -38,27 +38,22 @@ export async function updateMeClient(
 }
 
 // ---------- NOTES ----------
-export interface FetchNotesParams {
-  page: number;
-  perPage: number;
-  search?: string;
-  tag?: Note["tag"] | "All";
-}
-export interface FetchNotesResponse {
-  notes: Note[];
-  totalPages: number;
-  page: number;
-}
-
 export async function fetchNotesClient(
   params: FetchNotesParams
 ): Promise<FetchNotesResponse> {
+  const {
+    page = 1,
+    perPage = 12, // дефолт
+    search,
+    tag,
+  } = params;
+
   const query: Record<string, string | number> = {
-    page: params.page,
-    perPage: params.perPage,
+    page,
+    perPage,
   };
-  if (params.search?.trim()) query.search = params.search.trim();
-  if (params.tag && params.tag !== "All") query.tag = params.tag;
+  if (search?.trim()) query.search = search.trim();
+  if (tag && tag !== "All") query.tag = tag;
 
   const { data } = await api.get<FetchNotesResponse>("/notes", {
     params: query,

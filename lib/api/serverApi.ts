@@ -1,83 +1,43 @@
+// lib/api/serverApi.ts
+import { cookies } from "next/headers";
 import { api } from "./api";
 import type { AxiosResponse } from "axios";
-import { cookies } from "next/headers";
-import type { Note } from "@/types/note";
 import type { User } from "@/types/user";
+import type { Note, FetchNotesParams, FetchNotesResponse } from "@/types/note";
 
-const PER_PAGE = 12;
-
-async function authHeaders() {
-  const c = await cookies();
-  const access = c.get("accessToken")?.value;
-  const refresh = c.get("refreshToken")?.value;
-  const cookieHeader = [
-    access && `accessToken=${access}`,
-    refresh && `refreshToken=${refresh}`,
-  ]
-    .filter(Boolean)
-    .join("; ");
-  return cookieHeader ? { cookie: cookieHeader } : {};
+function cookieHeaders() {
+  const jar = cookies().toString(); // "key=value; key2=value2"
+  return jar ? { Cookie: jar } : {};
 }
 
-// -------- Notes (server) --------
-export async function fetchNotesServer(params: {
-  page?: number;
-  search?: string;
-  tag?: Note["tag"] | "All";
-}) {
-  const headers = await authHeaders();
-  const { data } = await api.get<{ notes: Note[]; totalPages: number }>(
-    "/notes",
-    {
-      headers,
-      withCredentials: true,
-      params: {
-        perPage: PER_PAGE,
-        page: params.page ?? 1,
-        search: params.search ?? "",
-        tag: params.tag && params.tag !== "All" ? params.tag : undefined,
-      },
-    }
-  );
+// ------- AUTH (server) -------
+export async function sessionServer(): Promise<AxiosResponse<User | "">> {
+  // Повертаємо ПОВНИЙ AxiosResponse, як просили в перевірці
+  return api.get<User | "">("/auth/session", {
+    headers: cookieHeaders(),
+  });
+}
+
+// ------- NOTES (server) -------
+export async function fetchNotesServer(
+  params: FetchNotesParams
+): Promise<FetchNotesResponse> {
+  const { page = 1, perPage = 12, search, tag } = params;
+
+  const q: Record<string, string | number> = { page, perPage };
+  if (search?.trim()) q.search = search.trim();
+  if (tag && tag !== "All") q.tag = tag;
+
+  const { data } = await api.get<FetchNotesResponse>("/notes", {
+    params: q,
+    headers: cookieHeaders(),
+  });
   return data;
 }
 
-export async function fetchNoteByIdServer(id: string) {
-  const headers = await authHeaders();
+export async function fetchNoteByIdServer(id: string): Promise<Note> {
   const { data } = await api.get<Note>(`/notes/${id}`, {
-    headers,
-    withCredentials: true,
+    headers: cookieHeaders(),
   });
   return data;
-}
-
-// -------- Users (server) --------
-export async function getMeServer(): Promise<User> {
-  const headers = await authHeaders();
-  const { data } = await api.get<User>("/users/me", {
-    headers,
-    withCredentials: true,
-  });
-  return data;
-}
-
-export async function updateMeServer(
-  payload: Partial<Pick<User, "username">>
-): Promise<User> {
-  const headers = await authHeaders();
-  const { data } = await api.patch<User>("/users/me", payload, {
-    headers,
-    withCredentials: true,
-  });
-  return data;
-}
-
-export async function getSessionServer(): Promise<
-  AxiosResponse<User | undefined>
-> {
-  const headers = await authHeaders();
-  return api.get<User | undefined>("/auth/session", {
-    headers,
-    withCredentials: true,
-  });
 }
