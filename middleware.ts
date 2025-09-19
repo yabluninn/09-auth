@@ -1,62 +1,42 @@
-import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
-
-const PUBLIC_PATHS = ["/", "/sign-in", "/sign-up"];
-
-function isPublic(pathname: string) {
-  return PUBLIC_PATHS.some(
-    (p) => pathname === p || pathname.startsWith(p + "/")
-  );
-}
+import type { NextRequest } from "next/server";
+import { cookies } from "next/headers";
+import { sessionServer } from "@/lib/api/serverApi";
 
 export async function middleware(req: NextRequest) {
-  const { pathname } = req.nextUrl;
-  const isPrivate =
-    pathname.startsWith("/notes") || pathname.startsWith("/profile");
-  const publicRoute = isPublic(pathname);
+  const pathname = req.nextUrl.pathname;
 
-  const cookieHeader = req.headers.get("cookie") || "";
-  let isAuth = /(?:^|;\s*)accessToken=/.test(cookieHeader);
-  const hasRefresh = /(?:^|;\s*)refreshToken=/.test(cookieHeader);
+  const isPrivate = pathname.startsWith("/(private routes)");
+  const isAuthRoute = pathname.startsWith("/(auth routes)");
 
-  let response: NextResponse | null = null;
+  const cookieStore = await cookies();
+  const accessToken = cookieStore.get("accessToken")?.value;
+  const refreshToken = cookieStore.get("refreshToken")?.value;
 
-  if (isPrivate && !isAuth && hasRefresh) {
-    const refreshRes = await fetch(new URL("/api/auth/refresh", req.url), {
-      method: "POST",
-      headers: { cookie: cookieHeader },
-    });
+  let isAuthenticated = Boolean(accessToken);
 
-    response = NextResponse.next();
-
-    const setCookies =
-      refreshRes.headers.getSetCookie?.() ??
-      (refreshRes.headers.get("set-cookie")
-        ? [refreshRes.headers.get("set-cookie") as string]
-        : []);
-
-    for (const c of setCookies) {
-      response.headers.append("Set-Cookie", c);
-      if (c?.startsWith("accessToken=")) isAuth = true;
-    }
+  if (!isAuthenticated && refreshToken) {
+    try {
+      const res = await sessionServer();
+      if (res.status === 200 && res.data && typeof res.data === "object") {
+        isAuthenticated = true;
+      }
+    } catch {}
   }
 
-  if (isPrivate && !isAuth) {
-    const url = req.nextUrl.clone();
-    url.pathname = "/sign-in";
-    url.searchParams.set("redirectTo", pathname);
+  if (isPrivate && !isAuthenticated) {
+    const url = new URL("/sign-in", req.url);
     return NextResponse.redirect(url);
   }
 
-  if (isAuth && publicRoute) {
-    const url = req.nextUrl.clone();
-    url.pathname = "/";
+  if (isAuthRoute && isAuthenticated) {
+    const url = new URL("/profile", req.url);
     return NextResponse.redirect(url);
   }
 
-  return response ?? NextResponse.next();
+  return NextResponse.next();
 }
 
 export const config = {
-  matcher: ["/", "/notes/:path*", "/profile/:path*", "/sign-in", "/sign-up"],
+  matcher: ["/(private routes)/(.*)", "/(auth routes)/(.*)"],
 };
