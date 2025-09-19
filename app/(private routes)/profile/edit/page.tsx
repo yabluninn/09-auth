@@ -6,7 +6,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { updateMeClient } from "@/lib/api/clientApi";
 import { sessionClient } from "@/lib/api/clientApi";
 import { useAuthStore } from "@/lib/store/authStore";
-import css from "./edit-profile.module.css";
+import css from "./EditProfilePage.module.css";
 
 export default function EditProfilePage() {
   const router = useRouter();

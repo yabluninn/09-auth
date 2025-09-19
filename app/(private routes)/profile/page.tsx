@@ -4,7 +4,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { isAxiosError } from "axios";
 import { fetchMeServer } from "@/lib/api/serverApi";
-import css from "./profile.module.css";
+import css from "./ProfilePage.module.css";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
