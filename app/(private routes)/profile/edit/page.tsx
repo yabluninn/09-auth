@@ -1,64 +1,72 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Image from "next/image";
-import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import css from "./EditProfilePage.module.css";
-import { updateMeClient, sessionClient } from "@/lib/api/clientApi";
+import css from "./profile-edit.module.css";
+import { sessionClient, updateMeClient } from "@/lib/api/clientApi";
+import { useAuthStore } from "@/lib/store/authStore";
+import type { User } from "@/types/user";
 
 export default function EditProfilePage() {
   const router = useRouter();
+  const setUser = useAuthStore((s) => s.setUser);
+
+  const [user, setLocalUser] = useState<User | null>(null);
   const [username, setUsername] = useState("");
-  const [email, setEmail] = useState<string>("");
-  const [avatarURL, setAvatarURL] = useState<string | undefined>(undefined);
-  const [saving, setSaving] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     (async () => {
-      const user = await sessionClient();
-      if (user) {
-        setUsername(user.username || "");
-        setEmail(user.email);
-        setAvatarURL(user.avatar || undefined);
-      } else {
-        router.push("/sign-in");
+      const u = await sessionClient();
+      if (!u) {
+        router.replace("/sign-in");
+        return;
       }
+      setLocalUser(u);
+      setUsername(u.username);
     })();
   }, [router]);
 
-  const onSubmit = async (e: React.FormEvent) => {
+  const onSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    setSaving(true);
+    if (!username.trim()) return;
+
     try {
-      await updateMeClient({ username: username.trim() });
+      setSubmitting(true);
+      const updated = await updateMeClient({ username: username.trim() });
+      setUser(updated);
       router.push("/profile");
     } finally {
-      setSaving(false);
+      setSubmitting(false);
     }
   };
+
+  const onCancel = () => router.back();
+
+  if (!user) {
+    return (
+      <main className={css.mainContent}>
+        <div className={css.profileCard}>
+          <h1 className={css.formTitle}>Edit Profile</h1>
+          <p>Loading…</p>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className={css.mainContent}>
       <div className={css.profileCard}>
         <h1 className={css.formTitle}>Edit Profile</h1>
 
-        {avatarURL ? (
-          <Image
-            src={avatarURL}
-            alt="User Avatar"
-            width={120}
-            height={120}
-            className={css.avatar}
-          />
-        ) : (
-          <Image
-            src="/placeholder-avatar.png"
-            alt="User Avatar"
-            width={120}
-            height={120}
-            className={css.avatar}
-          />
-        )}
+        <Image
+          src={user.avatar}
+          alt="User Avatar"
+          width={120}
+          height={120}
+          className={css.avatar}
+        />
 
         <form className={css.profileInfo} onSubmit={onSubmit}>
           <div className={css.usernameWrapper}>
@@ -69,19 +77,25 @@ export default function EditProfilePage() {
               className={css.input}
               value={username}
               onChange={(e) => setUsername(e.target.value)}
+              disabled={submitting}
             />
           </div>
 
-          <p>Email: {email || "user_email@example.com"}</p>
+          <p>Email: {user.email}</p>
 
           <div className={css.actions}>
-            <button type="submit" className={css.saveButton} disabled={saving}>
+            <button
+              type="submit"
+              className={css.saveButton}
+              disabled={submitting}
+            >
               Save
             </button>
             <button
               type="button"
               className={css.cancelButton}
-              onClick={() => router.back()}
+              onClick={onCancel}
+              disabled={submitting}
             >
               Cancel
             </button>
