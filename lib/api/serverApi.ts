@@ -4,31 +4,29 @@ import type { AxiosResponse } from "axios";
 import type { User } from "@/types/user";
 import type { Note, FetchNotesParams, FetchNotesResponse } from "@/types/note";
 
-function buildCookieHeader(): { Cookie: string } | undefined {
-  try {
-    const raw = cookies().toString(); // "k1=v1; k2=v2"
-    return raw ? { Cookie: raw } : undefined;
-  } catch {
-    return undefined;
-  }
+/** Собираем header Cookie из текущего request context */
+function cookieHeaders() {
+  // .toString() вернёт строку "k=v; k2=v2"
+  const jar = cookies().toString();
+  return jar ? { Cookie: jar } : {};
 }
 
-/* ===================== AUTH (server) ===================== */
+/** Проверка сессии — возвращаем ПОЛНЫЙ AxiosResponse (так просили) */
 export async function sessionServer(): Promise<AxiosResponse<User | "">> {
   return api.get<User | "">("/auth/session", {
-    headers: buildCookieHeader(),
+    headers: cookieHeaders(),
   });
 }
 
-/* ===================== USERS (server) ==================== */
+/** Текущий пользователь */
 export async function fetchMeServer(): Promise<User> {
   const { data } = await api.get<User>("/users/me", {
-    headers: buildCookieHeader(),
+    headers: cookieHeaders(),
   });
   return data;
 }
 
-/* ===================== NOTES (server) ==================== */
+/** Список заметок (SSR) */
 export async function fetchNotesServer(
   params: FetchNotesParams
 ): Promise<FetchNotesResponse> {
@@ -40,14 +38,15 @@ export async function fetchNotesServer(
 
   const { data } = await api.get<FetchNotesResponse>("/notes", {
     params: q,
-    headers: buildCookieHeader(),
+    headers: cookieHeaders(),
   });
   return data;
 }
 
+/** Одна заметка (SSR) */
 export async function fetchNoteByIdServer(id: string): Promise<Note> {
   const { data } = await api.get<Note>(`/notes/${id}`, {
-    headers: buildCookieHeader(),
+    headers: cookieHeaders(),
   });
   return data;
 }

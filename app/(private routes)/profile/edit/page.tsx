@@ -1,58 +1,60 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import css from "./EditProfilePage.module.css";
-import { sessionClient, updateMeClient } from "@/lib/api/clientApi";
+import { useEffect, useState, type FormEvent } from "react";
+import { updateMeClient } from "@/lib/api/clientApi";
+import { sessionClient } from "@/lib/api/clientApi";
 import { useAuthStore } from "@/lib/store/authStore";
-import type { User } from "@/types/user";
+import css from "./edit-profile.module.css";
 
 export default function EditProfilePage() {
   const router = useRouter();
-  const setUser = useAuthStore((s) => s.setUser);
-
-  const [user, setLocalUser] = useState<User | null>(null);
-  const [username, setUsername] = useState("");
-  const [submitting, setSubmitting] = useState(false);
+  const { user, setUser, isAuthenticated, clearIsAuthenticated } =
+    useAuthStore();
+  const [username, setUsername] = useState(user?.username ?? "");
+  const [email, setEmail] = useState(user?.email ?? "");
+  const [avatar, setAvatar] = useState(user?.avatar ?? "");
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
+    // Если store пустой — синхронизируемся по сессии (CSR)
     (async () => {
-      const u = await sessionClient();
-      if (!u) {
-        router.replace("/sign-in");
-        return;
+      if (!user) {
+        const me = await sessionClient();
+        if (!me) {
+          clearIsAuthenticated();
+          router.replace("/sign-in");
+          return;
+        }
+        setUser(me);
+        setUsername(me.username);
+        setEmail(me.email);
+        setAvatar(me.avatar);
       }
-      setLocalUser(u);
-      setUsername(u.username);
     })();
-  }, [router]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  const onSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    if (!username.trim()) return;
-
     try {
-      setSubmitting(true);
-      const updated = await updateMeClient({ username: username.trim() });
+      setLoading(true);
+      const updated = await updateMeClient({ username });
+      // ВАЖНО: обновляем глобальный store
       setUser(updated);
-      router.push("/profile");
+      router.replace("/profile");
     } finally {
-      setSubmitting(false);
+      setLoading(false);
     }
-  };
+  }
 
-  const onCancel = () => router.back();
+  function onCancel() {
+    router.back();
+  }
 
-  if (!user) {
-    return (
-      <main className={css.mainContent}>
-        <div className={css.profileCard}>
-          <h1 className={css.formTitle}>Edit Profile</h1>
-          <p>Loading…</p>
-        </div>
-      </main>
-    );
+  if (!isAuthenticated && !user) {
+    return null;
   }
 
   return (
@@ -60,13 +62,15 @@ export default function EditProfilePage() {
       <div className={css.profileCard}>
         <h1 className={css.formTitle}>Edit Profile</h1>
 
-        <Image
-          src={user.avatar}
-          alt="User Avatar"
-          width={120}
-          height={120}
-          className={css.avatar}
-        />
+        {avatar && (
+          <Image
+            src={avatar}
+            alt="User Avatar"
+            width={120}
+            height={120}
+            className={css.avatar}
+          />
+        )}
 
         <form className={css.profileInfo} onSubmit={onSubmit}>
           <div className={css.usernameWrapper}>
@@ -77,25 +81,19 @@ export default function EditProfilePage() {
               className={css.input}
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              disabled={submitting}
             />
           </div>
 
-          <p>Email: {user.email}</p>
+          <p>Email: {email}</p>
 
           <div className={css.actions}>
-            <button
-              type="submit"
-              className={css.saveButton}
-              disabled={submitting}
-            >
+            <button type="submit" className={css.saveButton} disabled={loading}>
               Save
             </button>
             <button
               type="button"
               className={css.cancelButton}
               onClick={onCancel}
-              disabled={submitting}
             >
               Cancel
             </button>

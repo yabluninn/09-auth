@@ -7,6 +7,9 @@ import { fetchNotesServer } from "@/lib/api/serverApi";
 import NotesClient from "./Notes.client";
 import type { Tag } from "@/types/note";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 const TAGS: Tag[] = ["All", "Todo", "Work", "Personal", "Meeting", "Shopping"];
 
 export default async function NotesByTagPage({
