@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
-import css from "./profile.module.css";
+import css from "./ProfilePage.module.css";
 import { fetchMeServer } from "@/lib/api/serverApi";
 
 export const metadata: Metadata = {
