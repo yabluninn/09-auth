@@ -1,58 +1,52 @@
-import { NextResponse, type NextRequest } from "next/server";
+// middleware.ts
+import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 
-const PRIVATE_PREFIXES = ["/profile", "/notes"];
-const PUBLIC_AUTH_ROUTES = ["/sign-in", "/sign-up"];
-
 export async function middleware(req: NextRequest) {
-  const { pathname } = req.nextUrl;
+  const { pathname, origin } = req.nextUrl;
 
-  const isPrivate = PRIVATE_PREFIXES.some((p) => pathname.startsWith(p));
-  const isPublicAuth = PUBLIC_AUTH_ROUTES.includes(pathname);
+  const isPrivate =
+    pathname.startsWith("/profile") || pathname.startsWith("/notes");
+  const isAuth =
+    pathname.startsWith("/sign-in") || pathname.startsWith("/sign-up");
 
-  const jar = cookies().toString(); // serializes cookies: "k=v; k2=v2"
-  const hasAccess = jar.includes("accessToken=");
-  const hasRefresh = jar.includes("refreshToken=");
+  const jar = (await cookies()).toString(); // "k1=v1; k2=v2"
+  const hasAccess = /(^|;\s*)accessToken=/.test(jar);
+  const hasRefresh = /(^|;\s*)refreshToken=/.test(jar);
 
-  let authenticated = false;
+  if (isAuth && hasAccess) {
+    return NextResponse.redirect(new URL("/", req.url));
+  }
 
-  if (hasAccess) {
-    authenticated = true;
-  } else if (!hasAccess && hasRefresh) {
-    try {
-      const base = process.env.NEXT_PUBLIC_API_URL ?? "";
-      const res = await fetch(`${base}/api/auth/session`, {
+  if (isPrivate) {
+    if (hasAccess) return NextResponse.next();
+
+    if (hasRefresh) {
+      const sessionUrl = new URL("/api/auth/session", origin);
+      const resp = await fetch(sessionUrl, {
         method: "GET",
         headers: { cookie: jar },
         credentials: "include",
       });
-      if (res.status === 200) {
-        const data = await res.json().catch(() => null);
-        authenticated = !!data && typeof data === "object";
+
+      if (resp.ok) {
+        const setCookie = resp.headers.get("set-cookie");
+        const next = NextResponse.next();
+        if (setCookie) {
+          next.headers.set("set-cookie", setCookie);
+        }
+        return next;
       }
-    } catch {
-      authenticated = false;
     }
-  }
 
-  // защита приватных страниц
-  if (isPrivate && !authenticated) {
-    const url = req.nextUrl.clone();
-    url.pathname = "/sign-in";
-    return NextResponse.redirect(url);
-  }
-
-  // редирект с публичных auth-страниц, если уже авторизован — на домашнюю
-  if (isPublicAuth && authenticated) {
-    const url = req.nextUrl.clone();
-    url.pathname = "/";
-    return NextResponse.redirect(url);
+    const login = new URL("/sign-in", req.url);
+    login.searchParams.set("from", pathname);
+    return NextResponse.redirect(login);
   }
 
   return NextResponse.next();
 }
 
-// запускаем только там, где нужно
 export const config = {
   matcher: ["/profile/:path*", "/notes/:path*", "/sign-in", "/sign-up"],
 };
